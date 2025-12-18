@@ -1,0 +1,14 @@
+[package]
+name = "wgpu_audio_fft_demo"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+anyhow = "1.0.100"
+bytemuck = { version = "1.24.0", features = ["aarch64_simd", "derive"] }
+cpal = "0.16.0"
+image = "0.25.8"
+pollster = "0.4.0"
+ringbuf = "0.4.8"
+wgpu = "27.0.1"
+winit = "0.30.12"

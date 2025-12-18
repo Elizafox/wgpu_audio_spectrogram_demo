@@ -306,7 +306,7 @@ impl Gpu {
         let win_pl = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
             label: Some("win_pl"),
             bind_group_layouts: &[&win_bgl],
-            push_constant_ranges: &[],
+            immediate_size: 0,
         });
         let win_pipe = device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
             label: Some("win_pipe"),
@@ -404,7 +404,7 @@ impl Gpu {
         let fft_pl = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
             label: Some("fft_pl"),
             bind_group_layouts: &[&fft_bgl],
-            push_constant_ranges: &[],
+            immediate_size: 0,
         });
         let fft_pipe = device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
             label: Some("fft_pipe"),
@@ -479,7 +479,7 @@ impl Gpu {
         let mag_pl = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
             label: Some("mag_pl"),
             bind_group_layouts: &[&mag_bgl],
-            push_constant_ranges: &[],
+            immediate_size: 0,
         });
         let mag_pipe = device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
             label: Some("mag_pipe"),
@@ -550,7 +550,7 @@ impl Gpu {
         let quad_pl = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
             label: Some("quad_pl"),
             bind_group_layouts: &[&quad_bgl],
-            push_constant_ranges: &[],
+            immediate_size: 0,
         });
         let quad_pipe = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
             label: Some("quad_pipe"),
@@ -574,8 +574,8 @@ impl Gpu {
             primitive: wgpu::PrimitiveState::default(),
             depth_stencil: None,
             multisample: wgpu::MultisampleState::default(),
-            multiview: None,
             cache: None,
+            multiview_mask: None,
         });
         let quad_bg = device.create_bind_group(&wgpu::BindGroupDescriptor {
             label: Some("quad_bg"),

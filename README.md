@@ -6,3 +6,6 @@ This is a simple demo with Rust and WGPU that uses WGSL to perform a GPU-acceler
 
 ## Running
 Just do `cargo run --release`. Requires a GUI.
+
+## Notes
+This applicaton uses [your default audio input device returned by cpal](https://docs.rs/cpal/latest/cpal/traits/trait.HostTrait.html#tymethod.default_input_device).

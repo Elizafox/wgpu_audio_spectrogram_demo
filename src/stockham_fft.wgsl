@@ -1,4 +1,4 @@
-// Stockham stage of FFT
+// Stockham algorithm for FFT
 
 const PI: f32 = 3.14159265358979323846;
 

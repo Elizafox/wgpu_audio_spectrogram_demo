@@ -244,10 +244,10 @@ impl Gpu {
             mapped_at_creation: false,
         });
 
-        // window kernel
+        // Window kernel
         let win = hann(n);
         let win_buf = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-            label: Some("window"),
+            label: Some("hahn_window"),
             contents: bytemuck::cast_slice(&win),
             usage: wgpu::BufferUsages::STORAGE,
         });
@@ -263,7 +263,7 @@ impl Gpu {
 
         let win_shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
             label: Some("window"),
-            source: wgpu::ShaderSource::Wgsl(include_str!("window.wgsl").into()),
+            source: wgpu::ShaderSource::Wgsl(include_str!("hahn_window.wgsl").into()),
         });
         let win_bgl = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
             label: Some("win_bgl"),
@@ -349,14 +349,14 @@ impl Gpu {
             mapped_at_creation: false,
         });
         let fft_shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
-            label: Some("stockham_stage"),
-            source: wgpu::ShaderSource::Wgsl(include_str!("stockham_stage.wgsl").into()),
+            label: Some("stockham_fft"),
+            source: wgpu::ShaderSource::Wgsl(include_str!("stockham_fft.wgsl").into()),
         });
         let fft_bgl = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
             label: Some("fft_bgl"),
             entries: &[
                 wgpu::BindGroupLayoutEntry {
-                    // in
+                    // In
                     binding: 0,
                     visibility: wgpu::ShaderStages::COMPUTE,
                     ty: wgpu::BindingType::Buffer {
@@ -367,7 +367,7 @@ impl Gpu {
                     count: None,
                 },
                 wgpu::BindGroupLayoutEntry {
-                    // out
+                    // Out
                     binding: 1,
                     visibility: wgpu::ShaderStages::COMPUTE,
                     ty: wgpu::BindingType::Buffer {
@@ -378,7 +378,7 @@ impl Gpu {
                     count: None,
                 },
                 wgpu::BindGroupLayoutEntry {
-                    // params
+                    // Params
                     binding: 2,
                     visibility: wgpu::ShaderStages::COMPUTE,
                     ty: wgpu::BindingType::Buffer {
@@ -389,7 +389,7 @@ impl Gpu {
                     count: None,
                 },
                 wgpu::BindGroupLayoutEntry {
-                    // twiddles
+                    // Twiddles
                     binding: 3,
                     visibility: wgpu::ShaderStages::COMPUTE,
                     ty: wgpu::BindingType::Buffer {

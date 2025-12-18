@@ -27,27 +27,29 @@ fn log_sample_bin(y: u32, bins: u32, out_h: u32, k_min: f32, k_max: f32) -> f32 
 
 // Jet colourisation of spectrogram
 fn jet(t0: f32) -> vec3<f32> {
-    let t = pow(clamp(t0, 0.0, 1.0), 0.8);
-    let s = 4.0 * t;
-    let i = u32(clamp(floor(s), 0.0, 3.0));
-    let f = fract(s);
-    let pal = array<vec3<f32>, 5>(
+    const PAL = array<vec3<f32>, 5>(
         vec3<f32>(0.0, 0.0, 0.5),
         vec3<f32>(0.0, 0.5, 1.0),
         vec3<f32>(0.0, 1.0, 0.0),
         vec3<f32>(1.0, 1.0, 0.0),
         vec3<f32>(1.0, 0.0, 0.0)
     );
-    return lerp3(pal[i], pal[i + 1u], f);
+    let t = pow(clamp(t0, 0.0, 1.0), 0.8);
+    let s = 4.0 * t;
+    let i = u32(clamp(floor(s), 0.0, 3.0));
+    let f = fract(s);
+    return lerp3(PAL[i], PAL[i + 1u], f);
 }
 
 @compute @workgroup_size(64,1,1)
 fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
-    let FLOOR: f32 = -100.0;
-    let CEIL: f32 = -25.0;
+    const FLOOR: f32 = -100.0;
+    const CEIL: f32 = -25.0;
 
     let y = gid.x;  // One thread per output row
-    if y >= U.height { return; }
+    if y >= U.height {
+        return;
+    }
 
     // Pick log range; skip DC so k_min = 1
     let k_min = 1.0;
@@ -58,7 +60,7 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
     kf = clamp(kf, k_min, k_max);
     let k0 = u32(floor(kf));
     let k1 = min(k0 + 1u, U.bins - 1u);
-    let w = f32(kf - f32(k0));
+    let w = kf - f32(k0);
 
     // Linear interpolate complex bins
     let c0 = X[k0];

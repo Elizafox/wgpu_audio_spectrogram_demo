@@ -73,21 +73,22 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
     // worst near the top).
     let k_hi = clamp(log_sample_bin(f32(y) - 0.5, out_h, k_min, k_max), k_min, k_max);
     let k_lo = clamp(log_sample_bin(f32(y) + 0.5, out_h, k_min, k_max), k_min, k_max);
-    let b0 = u32(floor(k_lo));
-    let b1 = max(min(u32(ceil(k_hi)), U.bins - 1u), b0);
 
-    // Weight each bin by how much of the row's [k_lo, k_hi] span it covers
-    // (a box filter would instead give every bin in range equal weight, and
-    // near the bottom/low-frequency end where several rows share the same 1-2
-    // bins that produces a hard staircase as the shared range flips from one
-    // bin pair to the next). This area-weighted average blends continuously
-    // as k_lo/k_hi slide across bin boundaries, so adjacent rows interpolate
-    // smoothly instead of stepping.
+    // Gaussian-weighted average over each row's neighborhood in bin space
+    // (sigma tied to the row's own span, so bottom rows get a touch of blur
+    // and top rows - which already span many bins - get proportionally more).
+    // A soft Gaussian roll-off avoids both the per-bin periodogram grain and
+    // the hard-edged-box staircase, without touching the time axis at all.
+    let center = 0.5 * (k_lo + k_hi);
+    let sigma = max((k_hi - k_lo) * 0.5, 0.6);
+    let b0 = u32(clamp(floor(center - 3.0 * sigma), k_min, k_max));
+    let b1 = u32(clamp(ceil(center + 3.0 * sigma), k_min, k_max));
+
     var power_sum = 0.0;
     var weight_sum = 0.0;
     for (var b = b0; b <= b1; b = b + 1u) {
-        let overlap = min(k_hi, f32(b) + 1.0) - max(k_lo, f32(b));
-        let weight = max(overlap, 0.0);
+        let d = (f32(b) + 0.5 - center) / sigma;
+        let weight = exp(-0.5 * d * d);
         let c = X[b];
         power_sum += dot(c, c) * weight;
         weight_sum += weight;

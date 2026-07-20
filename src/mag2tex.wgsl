@@ -16,10 +16,11 @@ fn lerp3(a: vec3<f32>, b: vec3<f32>, t: f32) -> vec3<f32> {
     return a + (b - a) * t;
 }
 
-// Log mapping helper
-fn log_sample_bin(y: u32, bins: u32, out_h: u32, k_min: f32, k_max: f32) -> f32 {
+// Log mapping helper: continuous version so we can evaluate row boundaries
+// at yf = y - 0.5 and yf = y + 0.5, not just integer row centers.
+fn log_sample_bin(yf: f32, out_h: f32, k_min: f32, k_max: f32) -> f32 {
     // y = 0 top = highest freq; flip so y grows downward
-    let t = 1.0 - (f32(y) / f32(max(out_h, 1u) - 1u));
+    let t = 1.0 - (yf / max(out_h - 1.0, 1.0));
     let lo = log(k_min);
     let hi = log(k_max);
     return exp(lo + t * (hi - lo)); // Fractional source bin index in [k_min..k_max]
@@ -54,22 +55,30 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
     // Pick log range; skip DC so k_min = 1
     let k_min = 1.0;
     let k_max = f32(max(U.bins, 2u) - 1u);
+    let out_h = f32(U.height);
 
-    // Fractional source bin
-    var kf = log_sample_bin(y, U.bins, U.height, k_min, k_max);
-    kf = clamp(kf, k_min, k_max);
-    let k0 = u32(floor(kf));
-    let k1 = min(k0 + 1u, U.bins - 1u);
-    let w = kf - f32(k0);
+    // Each output row covers a range of source bins under the log mapping
+    // (a wide range near the top/high-frequency end, at N=1024 the top octave
+    // alone spans roughly half of all bins). Average power over that whole
+    // range instead of interpolating just the two nearest bins, otherwise
+    // most of the spectral energy there is discarded and the picture is
+    // dominated by per-bin periodogram noise (visible as speckle/grain,
+    // worst near the top).
+    let k_hi = clamp(log_sample_bin(f32(y) - 0.5, out_h, k_min, k_max), k_min, k_max);
+    let k_lo = clamp(log_sample_bin(f32(y) + 0.5, out_h, k_min, k_max), k_min, k_max);
+    let b0 = u32(floor(k_lo));
+    let b1 = max(min(u32(ceil(k_hi)), U.bins - 1u), b0);
 
-    // Linear interpolate complex bins
-    let c0 = X[k0];
-    let c1 = X[k1];
-    let c = vec2<f32>(mix(c0.x, c1.x, w), mix(c0.y, c1.y, w));
+    var power_sum = 0.0;
+    for (var b = b0; b <= b1; b = b + 1u) {
+        let c = X[b];
+        power_sum += dot(c, c);
+    }
+    let count = f32(b1 - b0 + 1u);
+    let mag = sqrt(power_sum / count);
 
     // dB mapping
-    let ref_mag = 0.25 * f32(U.n);  // Hann coherent gain
-    let mag = length(c);
+    let ref_mag = 0.5 * f32(U.n);  // Hann window coherent gain
     let db = 20.0 * log(max(mag / ref_mag, 1e-20)) / log(10.0);
     var norm = clamp((db - FLOOR) / (CEIL - FLOOR), 0.0, 1.0);
     let g = pow(norm, 0.6);

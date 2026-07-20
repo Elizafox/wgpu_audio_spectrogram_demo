@@ -16,14 +16,21 @@ fn lerp3(a: vec3<f32>, b: vec3<f32>, t: f32) -> vec3<f32> {
     return a + (b - a) * t;
 }
 
+// Bias applied to the row->frequency mapping so the (mostly featureless,
+// heavily-averaged) top octaves get fewer pixel rows and the rest of the
+// spectrum gets more. 1.0 = pure log-uniform; higher = more compression
+// at the top.
+const FREQ_GAMMA: f32 = 0.5;
+
 // Log mapping helper: continuous version so we can evaluate row boundaries
 // at yf = y - 0.5 and yf = y + 0.5, not just integer row centers.
 fn log_sample_bin(yf: f32, out_h: f32, k_min: f32, k_max: f32) -> f32 {
     // y = 0 top = highest freq; flip so y grows downward
     let t = 1.0 - (yf / max(out_h - 1.0, 1.0));
+    let t_biased = pow(clamp(t, 0.0, 1.0), FREQ_GAMMA);
     let lo = log(k_min);
     let hi = log(k_max);
-    return exp(lo + t * (hi - lo)); // Fractional source bin index in [k_min..k_max]
+    return exp(lo + t_biased * (hi - lo)); // Fractional source bin index in [k_min..k_max]
 }
 
 // Jet colourisation of spectrogram

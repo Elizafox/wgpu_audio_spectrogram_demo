@@ -78,7 +78,7 @@ fn build_input_stream() -> anyhow::Result<AudioIn> {
         .default_input_device()
         .ok_or_else(|| anyhow::anyhow!("No input device found"))?;
     let cfg = dev.default_input_config()?;
-    let sample_rate = cfg.sample_rate().0;
+    let sample_rate = cfg.sample_rate();
     let channels = cfg.channels() as usize;
 
     // 1–2 sec of ring buffer
@@ -88,7 +88,7 @@ fn build_input_stream() -> anyhow::Result<AudioIn> {
     // Build the stream
     let stream = match cfg.sample_format() {
         cpal::SampleFormat::F32 => dev.build_input_stream(
-            &cfg.clone().into(),
+            cfg.into(),
             move |data: &[f32], _| {
                 let mut mono_buf = Vec::with_capacity(data.len() / channels);
                 for frame in data.chunks(channels) {
@@ -100,7 +100,7 @@ fn build_input_stream() -> anyhow::Result<AudioIn> {
             None,
         )?,
         cpal::SampleFormat::I16 => dev.build_input_stream(
-            &cfg.clone().into(),
+            cfg.into(),
             move |data: &[i16], _| {
                 let mut mono_buf = Vec::with_capacity(data.len() / channels);
                 for frame in data.chunks(channels) {
@@ -116,7 +116,7 @@ fn build_input_stream() -> anyhow::Result<AudioIn> {
             None,
         )?,
         cpal::SampleFormat::U16 => dev.build_input_stream(
-            &cfg.clone().into(),
+            cfg.into(),
             move |data: &[u16], _| {
                 let mut mono_buf = Vec::with_capacity(data.len() / channels);
                 for frame in data.chunks(channels) {
@@ -183,13 +183,14 @@ struct Gpu {
 
 impl Gpu {
     async fn new(window: &'static Window, n: usize, hist_width: u32) -> Self {
-        let instance = wgpu::Instance::new(&wgpu::InstanceDescriptor::default());
+        let instance = wgpu::Instance::new(wgpu::InstanceDescriptor::new_without_display_handle());
         let surface = instance.create_surface(window).expect("create surface");
         let adapter = instance
             .request_adapter(&wgpu::RequestAdapterOptions {
                 power_preference: wgpu::PowerPreference::HighPerformance,
                 compatible_surface: Some(&surface),
                 force_fallback_adapter: false,
+                apply_limit_buckets: false,
             })
             .await
             .expect("No adapter");
@@ -224,6 +225,7 @@ impl Gpu {
             alpha_mode: surface_caps.alpha_modes[0],
             view_formats: vec![],
             desired_maximum_frame_latency: 1,
+            color_space: wgpu::SurfaceColorSpace::Auto,
         };
         surface.configure(&device, &config);
 
@@ -305,7 +307,7 @@ impl Gpu {
         });
         let win_pl = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
             label: Some("win_pl"),
-            bind_group_layouts: &[&win_bgl],
+            bind_group_layouts: &[Some(&win_bgl)],
             immediate_size: 0,
         });
         let win_pipe = device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
@@ -403,7 +405,7 @@ impl Gpu {
         });
         let fft_pl = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
             label: Some("fft_pl"),
-            bind_group_layouts: &[&fft_bgl],
+            bind_group_layouts: &[Some(&fft_bgl)],
             immediate_size: 0,
         });
         let fft_pipe = device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
@@ -478,7 +480,7 @@ impl Gpu {
         });
         let mag_pl = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
             label: Some("mag_pl"),
-            bind_group_layouts: &[&mag_bgl],
+            bind_group_layouts: &[Some(&mag_bgl)],
             immediate_size: 0,
         });
         let mag_pipe = device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
@@ -549,7 +551,7 @@ impl Gpu {
         });
         let quad_pl = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
             label: Some("quad_pl"),
-            bind_group_layouts: &[&quad_bgl],
+            bind_group_layouts: &[Some(&quad_bgl)],
             immediate_size: 0,
         });
         let quad_pipe = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
@@ -874,10 +876,15 @@ impl App {
             .write_buffer(&gpu.view_buf, 0, bytemuck::bytes_of(&view));
 
         let frame = match gpu.surface.get_current_texture() {
-            Ok(f) => f,
-            Err(_) => {
+            wgpu::CurrentSurfaceTexture::Success(f)
+            | wgpu::CurrentSurfaceTexture::Suboptimal(f) => f,
+            _ => {
                 gpu.surface.configure(&gpu.device, &gpu.config);
-                gpu.surface.get_current_texture().expect("acquire surface")
+                match gpu.surface.get_current_texture() {
+                    wgpu::CurrentSurfaceTexture::Success(f)
+                    | wgpu::CurrentSurfaceTexture::Suboptimal(f) => f,
+                    other => panic!("acquire surface: {other:?}"),
+                }
             }
         };
         let view_tex = frame
@@ -907,7 +914,7 @@ impl App {
             rp.draw(0..6, 0..1);
         }
         gpu.queue.submit(Some(enc.finish()));
-        frame.present();
+        gpu.queue.present(frame);
     }
 }
 

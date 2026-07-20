@@ -5,10 +5,10 @@ edition = "2024"
 
 [dependencies]
 anyhow = "1.0"
-bytemuck = { version = "1.24", features = ["aarch64_simd", "derive"] }
-cpal = "0.16"
+bytemuck = { version = "1.25", features = ["aarch64_simd", "avx512_simd", "derive"] }
+cpal = { version = "0.18", features = ["pipewire"] }
 image = "0.25"
-pollster = "0.4"
-ringbuf = "0.4"
-wgpu = "28.0"
+pollster = "1.0"
+ringbuf = "0.5"
+wgpu = "30.0"
 winit = "0.30"

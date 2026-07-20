@@ -69,13 +69,23 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
     let b0 = u32(floor(k_lo));
     let b1 = max(min(u32(ceil(k_hi)), U.bins - 1u), b0);
 
+    // Weight each bin by how much of the row's [k_lo, k_hi] span it covers
+    // (a box filter would instead give every bin in range equal weight, and
+    // near the bottom/low-frequency end where several rows share the same 1-2
+    // bins that produces a hard staircase as the shared range flips from one
+    // bin pair to the next). This area-weighted average blends continuously
+    // as k_lo/k_hi slide across bin boundaries, so adjacent rows interpolate
+    // smoothly instead of stepping.
     var power_sum = 0.0;
+    var weight_sum = 0.0;
     for (var b = b0; b <= b1; b = b + 1u) {
+        let overlap = min(k_hi, f32(b) + 1.0) - max(k_lo, f32(b));
+        let weight = max(overlap, 0.0);
         let c = X[b];
-        power_sum += dot(c, c);
+        power_sum += dot(c, c) * weight;
+        weight_sum += weight;
     }
-    let count = f32(b1 - b0 + 1u);
-    let mag = sqrt(power_sum / count);
+    let mag = sqrt(power_sum / max(weight_sum, 1e-6));
 
     // dB mapping
     let ref_mag = 0.5 * f32(U.n);  // Hann window coherent gain
